@@ -6,6 +6,7 @@ use App\Events\CashRegisterHistoryAfterAllDeletedEvent;
 use App\Exceptions\NotAllowedException;
 use App\Models\Order;
 use App\Models\OrderPayment;
+use App\Models\PaymentType;
 use App\Models\Register;
 use App\Models\RegisterHistory;
 use App\Models\User;
@@ -155,7 +156,9 @@ class CashRegistersService
             $cashRegisterHistory->author_id = $orderPayment->order->author_id;
             $cashRegisterHistory->balance_before = $register->balance;
             $cashRegisterHistory->value = ns()->currency->define( $orderPayment->value )->toFloat();
-            $cashRegisterHistory->balance_after = ns()->currency->define( $register->balance )->additionateBy( $orderPayment->value )->toFloat();
+            $cashRegisterHistory->balance_after = $orderPayment->identifier === OrderPayment::PAYMENT_CASH
+                ? ns()->currency->define( $register->balance )->additionateBy( $orderPayment->value )->toFloat()
+                : $register->balance;
             $cashRegisterHistory->save();
 
             return [
@@ -253,7 +256,10 @@ class CashRegistersService
         $register = Register::find( $registerHistory->register_id );
 
         if ( $register instanceof Register && $register->status === Register::STATUS_OPENED ) {
-            if ( in_array( $registerHistory->action, RegisterHistory::IN_ACTIONS ) ) {
+            $isCashPayment = $registerHistory->action === RegisterHistory::ACTION_ORDER_PAYMENT
+                && (int) $registerHistory->payment_type_id === (int) PaymentType::identifier( OrderPayment::PAYMENT_CASH )->value( 'id' );
+
+            if ( in_array( $registerHistory->action, RegisterHistory::IN_ACTIONS ) && ( $registerHistory->action !== RegisterHistory::ACTION_ORDER_PAYMENT || $isCashPayment ) ) {
                 $register->balance += $registerHistory->value;
             } elseif ( in_array( $registerHistory->action, RegisterHistory::OUT_ACTIONS ) ) {
                 $register->balance -= $registerHistory->value;
@@ -290,11 +296,16 @@ class CashRegistersService
             ->orderBy( 'id', 'desc' )
             ->first();
 
-        $totalInActions = RegisterHistory::whereIn(
-            'action', RegisterHistory::IN_ACTIONS
-        )
+        $cashPaymentId = PaymentType::identifier( OrderPayment::PAYMENT_CASH )->value( 'id' );
+        $totalInActions = RegisterHistory::where( 'register_id', $cashRegister->id )
             ->where( 'created_at', '>=', $lastOpeningAction->created_at )
-            ->where( 'register_id', $cashRegister->id )->sum( 'value' );
+            ->where( function ( $query ) use ( $cashPaymentId ) {
+                $query->whereIn( 'action', array_diff( RegisterHistory::IN_ACTIONS, [ RegisterHistory::ACTION_ORDER_PAYMENT ] ) )
+                    ->orWhere( function ( $query ) use ( $cashPaymentId ) {
+                        $query->where( 'action', RegisterHistory::ACTION_ORDER_PAYMENT )
+                            ->where( 'payment_type_id', $cashPaymentId );
+                    } );
+            } )->sum( 'value' );
 
         $totalOutActions = RegisterHistory::whereIn(
             'action', RegisterHistory::OUT_ACTIONS
