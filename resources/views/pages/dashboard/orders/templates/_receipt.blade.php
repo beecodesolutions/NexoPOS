@@ -1,11 +1,44 @@
 <?php
 use App\Models\Order;
+use App\Models\OrderPayment;
 use App\Classes\Hook;
 use Illuminate\Support\Facades\View;
 
 $prefered_price     =   $order->settings?->where( 'key', 'ns_pos_prefered_price' )->first()?->value;
 $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?->value;
+$payments          =   collect( $order->payments );
+$hasCashPayment    =   $payments->contains( fn ( $payment ) => ( $payment[ 'identifier' ] ?? null ) === OrderPayment::PAYMENT_CASH );
+$hasNonCashPayment =   $payments->contains( fn ( $payment ) => ( $payment[ 'identifier' ] ?? null ) !== OrderPayment::PAYMENT_CASH );
+$showPaymentAmounts =  $hasCashPayment && $hasNonCashPayment;
+$showPaidAndChange  =  $hasCashPayment || $order->payment_status === Order::PAYMENT_PARTIALLY;
+$showSubtotal       =  ns()->option->get( 'ns_invoice_show_subtotal', 'yes' ) === 'yes'
+    && ns()->currency->define( $order->subtotal )->toFloat() !== ns()->currency->define( $order->total )->toFloat();
+$receiptColumnA     = (string) $ordersService->orderTemplateMapping( 'ns_invoice_receipt_column_a', $order );
+$receiptColumnB     = (string) $ordersService->orderTemplateMapping( 'ns_invoice_receipt_column_b', $order );
+$receiptColumnClass = trim( $receiptColumnA ) !== '' && trim( $receiptColumnB ) !== '' ? 'w-1/2' : 'w-full';
 ?>
+<style>
+    #nexopos-sale-receipt .receipt-payment-section tr:first-child td {
+        border-top: 1px solid #1f2937;
+        padding-top: 3mm;
+    }
+
+    #nexopos-sale-receipt .receipt-payment-method {
+        width: auto !important;
+        text-align: left !important;
+    }
+
+    #nexopos-sale-receipt .receipt-unit-price {
+        display: inline-block;
+        font-size: 0.75em;
+        line-height: 1.1;
+        white-space: nowrap;
+    }
+
+    #nexopos-sale-receipt .receipt-unit-price-amount {
+        white-space: nowrap;
+    }
+</style>
 @if ( request()->query( 'dash-visibility' ) === 'disabled' )
 <style media="print">
     @@page {
@@ -18,7 +51,7 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
     }
 
     #nexopos-sale-receipt {
-        width: 48mm;
+        width: 44mm;
         margin: 0;
         font: 10px/1.2 Arial, sans-serif;
         text-align: left;
@@ -31,15 +64,15 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
     }
 
     #nexopos-sale-receipt .receipt-sheet {
-        width: 48mm;
-        max-width: 48mm;
+        width: 44mm;
+        max-width: 44mm;
         margin: 0;
-        padding: 2mm 0;
+        padding: 1mm 0;
         box-shadow: none;
     }
 
     #nexopos-sale-receipt .receipt-header h3 {
-        font-size: 14px;
+        font-size: 13px;
         line-height: 1.2;
     }
 
@@ -53,19 +86,24 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
     }
 
     #nexopos-sale-receipt .receipt-meta {
-        padding: 2mm 0;
+        padding: 1mm 0;
     }
 
     #nexopos-sale-receipt .receipt-columns {
         margin: 0;
     }
 
+    #nexopos-sale-receipt .receipt-columns > div {
+        padding: 0 1mm;
+    }
+
     #nexopos-sale-receipt table {
         table-layout: fixed;
+        border-collapse: collapse;
     }
 
     #nexopos-sale-receipt td {
-        padding: 1.5mm 0.5mm;
+        padding: 0.75mm 0.5mm;
         overflow-wrap: anywhere;
         vertical-align: top;
     }
@@ -75,9 +113,21 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
         text-align: right;
     }
 
+    #nexopos-sale-receipt .receipt-payment-section tr:first-child td {
+        padding-top: 3mm;
+    }
+
+    #nexopos-sale-receipt .receipt-unit-price {
+        font-size: 8px;
+    }
+
+    #nexopos-sale-receipt .receipt-total-row td {
+        font-weight: 700;
+    }
+
     #nexopos-sale-receipt .receipt-note,
     #nexopos-sale-receipt .receipt-footer {
-        padding: 3mm 0 2mm;
+        padding: 2mm 0 1mm;
         text-align: left;
     }
 </style>
@@ -93,12 +143,16 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
         </div>
         <div class="receipt-meta p-2 border-b border-gray-700">
             <div class="receipt-columns flex flex-wrap -mx-2 text-sm">
-                <div class="px-2 w-1/2">
-                    {!! nl2br( $ordersService->orderTemplateMapping( 'ns_invoice_receipt_column_a', $order ) ) !!}
+                @if ( trim( $receiptColumnA ) !== '' )
+                <div class="px-2 {{ $receiptColumnClass }}">
+                    {!! nl2br( $receiptColumnA ) !!}
                 </div>
-                <div class="px-2 w-1/2">
-                    {!! nl2br( $ordersService->orderTemplateMapping( 'ns_invoice_receipt_column_b', $order ) ) !!}
+                @endif
+                @if ( trim( $receiptColumnB ) !== '' )
+                <div class="px-2 {{ $receiptColumnClass }}">
+                    {!! nl2br( $receiptColumnB ) !!}
                 </div>
+                @endif
             </div>
         </div>
         <div class="table w-full">
@@ -113,7 +167,11 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
                     @foreach( Hook::filter( 'ns-receipt-products', $order->combinedProducts ) as $product )
                     <tr>
                         <td colspan="2" class="p-2 border-b border-gray-700">
-                            <?php $productName  =   View::make( 'pages.dashboard.orders.templates._product-name', compact( 'product' ) );?>
+                            <?php $productName  =   View::make( 'pages.dashboard.orders.templates._product-name', [
+                                'product' => $product,
+                                'showProductUnit' => false,
+                                'showProductUnitPrice' => is_numeric( $product->quantity ) && (float) $product->quantity !== 1.0,
+                            ] );?>
                             <?php echo Hook::filter( 'ns-receipt-product-name', $productName->render(), $product );?>
                         </td>
                         <td class="p-2 border-b border-gray-800 text-right">{{ ns()->currency->define( $product->total_price ) }}</td>
@@ -134,7 +192,7 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
                         </tr>
                         @endif
                     @endif
-                    @if ( ns()->option->get( 'ns_invoice_show_subtotal', 'yes' ) === 'yes' )
+                    @if ( $showSubtotal )
                     <tr>
                         <td colspan="2" class="p-2 border-b border-gray-800 text-sm font-semibold">{{ __( 'Sub Total' ) }}</td>
                         <td class="p-2 border-b border-gray-800 text-sm text-right">{{ ns()->currency->define( $order->subtotal ) }}</td>
@@ -192,22 +250,30 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
                         <td class="p-2 border-b border-gray-800 text-sm text-right">{{ ns()->currency->define( $order->shipping ) }}</td>
                     </tr>
                     @endif
-                    <tr>
+                    <tr class="receipt-total-row">
                         <td colspan="2" class="p-2 border-b border-gray-800 text-sm font-semibold">{{ __( 'Total' ) }}</td>
                         <td class="p-2 border-b border-gray-800 text-sm text-right">{{ ns()->currency->define( $order->total ) }}</td>
                     </tr>
+                </tbody>
+                <tbody class="receipt-payment-section">
                     @if ( ns()->option->get( 'ns_invoice_show_payment_rows', 'yes' ) === 'yes' )
-                    @foreach( $order->payments as $payment )
+                    @foreach( $payments as $payment )
                     <tr>
+                        @if ( $showPaymentAmounts )
                         <td class="p-2 border-b border-gray-800 text-sm font-semibold" colspan="2">{{ $paymentTypes[ $payment[ 'identifier' ] ] ?? __( 'Unknown Payment' ) }}</td>
                         <td class="p-2 border-b border-gray-800 text-sm text-right">{{ ns()->currency->define( $payment[ 'value' ] ) }}</td>
+                        @else
+                        <td colspan="3" class="receipt-payment-method p-2 border-b border-gray-800 text-sm font-semibold">{{ __( 'Payment Method' ) }}: {{ $paymentTypes[ $payment[ 'identifier' ] ] ?? __( 'Unknown Payment' ) }}</td>
+                        @endif
                     </tr>
                     @endforeach
                     @endif
+                    @if ( $showPaidAndChange )
                     <tr>
                         <td colspan="2" class="p-2 border-b border-gray-800 text-sm font-semibold">{{ __( 'Paid' ) }}</td>
                         <td class="p-2 border-b border-gray-800 text-sm text-right">{{ ns()->currency->define( $order->tendered ) }}</td>
                     </tr>
+                    @endif
                     @if ( in_array( $order->payment_status, [ 'refunded', 'partially_refunded' ]) )
                         @foreach( $order->refund as $refund )
                         <tr>
@@ -219,10 +285,12 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
                     @if ( ns()->option->get( 'ns_invoice_show_change_due', 'yes' ) !== 'no' )
                     @switch( $order->payment_status )
                         @case( Order::PAYMENT_PAID )
+                        @if ( $hasCashPayment )
                         <tr>
                             <td colspan="2" class="p-2 border-b border-gray-800 text-sm font-semibold">{{ __( 'Change' ) }}</td>
                             <td class="p-2 border-b border-gray-800 text-sm text-right">{{ ns()->currency->define( $order->change ) }}</td>
                         </tr>
+                        @endif
                         @break
                         @case( Order::PAYMENT_PARTIALLY )
                         <tr>
