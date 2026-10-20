@@ -6,17 +6,93 @@ use Illuminate\Support\Facades\View;
 $prefered_price     =   $order->settings?->where( 'key', 'ns_pos_prefered_price' )->first()?->value;
 $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?->value;
 ?>
-<div class="w-full h-full">
-    <div class="w-full md:w-1/2 lg:w-1/3 shadow-lg bg-white p-2 mx-auto">
-        <div class="flex items-center justify-center">
+@if ( request()->query( 'dash-visibility' ) === 'disabled' )
+<style media="print">
+    @@page {
+        size: auto;
+        margin: 0;
+    }
+
+    body {
+        margin: 0 !important;
+    }
+
+    #nexopos-sale-receipt {
+        width: 48mm;
+        margin: 0;
+        font: 10px/1.2 Arial, sans-serif;
+        text-align: left;
+    }
+
+    #nexopos-sale-receipt .text-sm,
+    #nexopos-sale-receipt td {
+        font-size: 10px;
+        line-height: 1.2;
+    }
+
+    #nexopos-sale-receipt .receipt-sheet {
+        width: 48mm;
+        max-width: 48mm;
+        margin: 0;
+        padding: 2mm 0;
+        box-shadow: none;
+    }
+
+    #nexopos-sale-receipt .receipt-header h3 {
+        font-size: 14px;
+        line-height: 1.2;
+    }
+
+    #nexopos-sale-receipt .receipt-header {
+        justify-content: flex-start;
+    }
+
+    #nexopos-sale-receipt .receipt-header img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    #nexopos-sale-receipt .receipt-meta {
+        padding: 2mm 0;
+    }
+
+    #nexopos-sale-receipt .receipt-columns {
+        margin: 0;
+    }
+
+    #nexopos-sale-receipt table {
+        table-layout: fixed;
+    }
+
+    #nexopos-sale-receipt td {
+        padding: 1.5mm 0.5mm;
+        overflow-wrap: anywhere;
+        vertical-align: top;
+    }
+
+    #nexopos-sale-receipt td:last-child {
+        width: 16mm;
+        text-align: right;
+    }
+
+    #nexopos-sale-receipt .receipt-note,
+    #nexopos-sale-receipt .receipt-footer {
+        padding: 3mm 0 2mm;
+        text-align: left;
+    }
+</style>
+@endif
+<div id="nexopos-sale-receipt" class="w-full h-full">
+    <div class="receipt-sheet w-full md:w-1/2 lg:w-1/3 shadow-lg bg-white p-2 mx-auto">
+        <div class="receipt-header flex items-center justify-center">
             @if ( empty( ns()->option->get( 'ns_invoice_receipt_logo' ) ) )
             <h3 class="text-3xl font-bold">{{ ns()->option->get( 'ns_store_name' ) }}</h3>
             @else
             <img src="{{ ns()->option->get( 'ns_invoice_receipt_logo' ) }}" alt="{{ ns()->option->get( 'ns_store_name' ) }}">
             @endif
         </div>
-        <div class="p-2 border-b border-gray-700">
-            <div class="flex flex-wrap -mx-2 text-sm">
+        <div class="receipt-meta p-2 border-b border-gray-700">
+            <div class="receipt-columns flex flex-wrap -mx-2 text-sm">
                 <div class="px-2 w-1/2">
                     {!! nl2br( $ordersService->orderTemplateMapping( 'ns_invoice_receipt_column_a', $order ) ) !!}
                 </div>
@@ -159,11 +235,11 @@ $pos_vat          =   $order->settings?->where( 'key', 'ns_pos_vat' )->first()?-
                 </tbody>
             </table>
             @if( $order->note_visibility === 'visible' )
-            <div class="pt-6 pb-4 text-center text-gray-800 text-sm">
+            <div class="receipt-note pt-6 pb-4 text-center text-gray-800 text-sm">
                 <strong>{{ __( 'Note: ' ) }}</strong> {{ $order->note }}
             </div>
             @endif
-            <div class="pt-6 pb-4 text-center text-gray-800 text-sm">
+            <div class="receipt-footer pt-6 pb-4 text-center text-gray-800 text-sm">
                 {{ ns()->option->get( 'ns_invoice_receipt_footer' ) }}
             </div>
         </div>
