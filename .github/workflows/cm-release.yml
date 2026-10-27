@@ -1,0 +1,30 @@
+name: Cafe Montana update
+on:
+  push:
+    tags: ['cm-v*']
+permissions:
+  contents: read
+jobs:
+  package:
+    if: github.repository == 'beecodesolutions/NexoPOS'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test packager
+        run: python3 .github/scripts/test-package-update.py
+      - name: Package committed files
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 .github/scripts/package-update.py --revision "$GITHUB_SHA" --version "$RELEASE_TAG" --output "$RUNNER_TEMP/release"
+      - name: Create draft for review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" "$RUNNER_TEMP/release/nexopos-update.zip" --verify-tag --draft --title "$RELEASE_TAG" --generate-notes
