@@ -16,27 +16,55 @@
                 :name="field.name"
                 :disabled="field.disabled" 
                 v-model="field.value" 
-                :id="field.name" :type="type || field.type || 'text'" 
+                :id="field.name" :type="passwordVisible && isPassword ? 'text' : inputType"
                 :class="inputClass" class="block w-full sm:text-sm sm:leading-5 h-10" :placeholder="field.placeholder || ''" />
-            <div v-if="field.suffix" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <span class="suffix sm:text-sm sm:leading-5">
+            <div class="absolute inset-y-0 right-0 flex items-center pointer-events-none">
+                <span v-if="field.suffix" class="suffix pr-3 sm:text-sm sm:leading-5">
                 {{ field.suffix }}
                 </span>
+                <button
+                    v-if="isPassword"
+                    type="button"
+                    class="pointer-events-auto h-full px-3 cursor-pointer disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:-outline-offset-2"
+                    :disabled="field.disabled"
+                    :aria-label="__(passwordVisible ? 'Hide Password' : 'Show Password')"
+                    @click="passwordVisible = !passwordVisible"
+                >
+                    <i class="las text-lg" :class="passwordVisible ? 'la-eye-slash' : 'la-eye'" aria-hidden="true"></i>
+                </button>
             </div>
         </div>
         <ns-field-description :field="field"></ns-field-description>
     </div>
 </template>
 <script>
+import { __ } from '~/libraries/lang';
+
 export default {
     data: () => {
         return {
+            passwordVisible: false,
         }
     },
     mounted() {
         // ...
     },
+    methods: { __ },
+    watch: {
+        'field.name'() {
+            this.passwordVisible = false;
+        },
+        inputType() {
+            this.passwordVisible = false;
+        },
+    },
     computed: {
+        inputType() {
+            return this.type || this.field.type || 'text';
+        },
+        isPassword() {
+            return this.inputType === 'password';
+        },
         hasError() {
             if ( this.field.errors !== undefined && this.field.errors.length > 0 ) {
                 return true;
@@ -47,10 +75,10 @@ export default {
             return this.field.disabled ? 'ns-disabled cursor-not-allowed' : '';
         },
         inputClass() {
-            return this.disabledClass + ' ' + this.leadClass
+            return [this.disabledClass, this.leadClass, this.isPassword && (this.field.suffix ? 'pr-20' : 'pr-10')];
         },
         leadClass() {
-            return this.leading ? 'pl-8' : 'px-4';
+            return this.leading ? 'pl-8' : this.isPassword ? 'pl-4' : 'px-4';
         }
     },
     props: [ 'placeholder', 'leading', 'type', 'field' ],

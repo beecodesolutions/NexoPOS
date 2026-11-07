@@ -68,14 +68,24 @@
               <label for="adminPassword" class="block text-sm font-medium text-gray-700 mb-1">
                 {{ __('Password') }}
               </label>
-              <input
-                id="adminPassword"
-                v-model="credentials.password"
-                type="password"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                :placeholder="__('Enter admin password')"
-                required
-              >
+              <div class="relative">
+                <input
+                  id="adminPassword"
+                  v-model="credentials.password"
+                  :type="passwordVisible ? 'text' : 'password'"
+                  class="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  :placeholder="__('Enter admin password')"
+                  required
+                >
+                <button
+                  type="button"
+                  class="absolute inset-y-0 right-0 px-3 text-gray-700 cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2"
+                  :aria-label="__(passwordVisible ? 'Hide Password' : 'Show Password')"
+                  @click="passwordVisible = !passwordVisible"
+                >
+                  <i class="las text-lg" :class="passwordVisible ? 'la-eye-slash' : 'la-eye'" aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
             <div class="flex items-center">
               <input
@@ -165,6 +175,7 @@ const credentials = ref<Credentials>({
   temporary: true
 })
 
+const passwordVisible = ref(false)
 const errorMessage = ref('')
 const isLoading = ref(false)
 const showQRCode = ref(true)
