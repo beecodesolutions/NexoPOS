@@ -9,6 +9,11 @@ from pathlib import Path
 
 BASE = 'v6.2.4'
 MARKERS = ('composer.json', 'composer.lock', 'package.json', 'config/nexopos.php')
+# Source inputs and browser tests are checked in, while Windows runs public/build.
+BUILD_INPUTS = {
+    'resources/ts/components/ns-input.vue',
+    'resources/ts/pages/dashboard/pos/ns-pos-permissions-popup.vue',
+}
 # Windows catalog verified byte-for-byte on 2026-10-26; JSON equals commit 3d9bb71e.
 VERIFIED_SOURCE_HASHES = {
     'lang/es.json': {'26b17b2a5039a7095da54106f815ca317e74677cc925ac0963d7ef8f76218249'},
@@ -54,7 +59,13 @@ def package(revision, version, output):
     # Refuse releases needing dependency changes, migrations or other runtime files.
     changed = git('diff', '--name-only', '-z', BASE, commit).decode().split('\0')
     changed = [p for p in changed if p]
-    unsupported = [p for p in changed if not source_path(p) and not p.startswith(('tests/', '.github/'))]
+    has_compiled_assets = 'public/build/manifest.json' in changed
+    unsupported = [
+        p for p in changed
+        if not source_path(p)
+        and not p.startswith(('tests/', 'playwright/', '.github/'))
+        and not (has_compiled_assets and p in BUILD_INPUTS)
+    ]
     if unsupported:
         raise ValueError(f'Unsupported runtime changes: {unsupported}')
     touched = git('log', '--format=', '--name-only', '--no-renames', '-z', f'{BASE}..{commit}').decode().split('\0')

@@ -16,7 +16,7 @@ class PackageTest(unittest.TestCase):
             if args[0] == 'rev-parse':
                 return b'a' * 40
             if args[0] == 'diff':
-                return b'lang/es.json\0routes/new.php\0app/Legacy.php\0tests/Feature/Example.php\0'
+                return b'lang/es.json\0routes/new.php\0app/Legacy.php\0tests/Feature/Example.php\0playwright/auth.spec.ts\0resources/ts/components/ns-input.vue\0public/build/manifest.json\0'
             if args[0] == 'log':
                 if args[1] == '--format=':
                     return b'app/Reverted.php\0'
@@ -31,7 +31,7 @@ class PackageTest(unittest.TestCase):
             manifest = p.package('HEAD', 'cm-v1.1.0', tmp)
             self.assertEqual(manifest['schema'], 2)
             files = {f['path']: f for f in manifest['files']}
-            self.assertEqual(len(files), 4)
+            self.assertEqual(len(files), 5)
             self.assertIn('app/Reverted.php', files)
             self.assertIsNone(files['app/Legacy.php']['sha256'])
             self.assertIn(None, files['routes/new.php']['accepted_sha256'])
@@ -39,11 +39,11 @@ class PackageTest(unittest.TestCase):
             for path, file in files.items():
                 self.assertEqual(verified in file['accepted_sha256'], path == 'lang/es.json')
             with zipfile.ZipFile(Path(tmp) / 'nexopos-update.zip') as z:
-                self.assertEqual(set(z.namelist()), {'manifest.json', 'files/lang/es.json', 'files/routes/new.php', 'files/app/Reverted.php'})
+                self.assertEqual(set(z.namelist()), {'manifest.json', 'files/lang/es.json', 'files/routes/new.php', 'files/app/Reverted.php', 'files/public/build/manifest.json'})
                 self.assertEqual(z.read('files/lang/es.json'), (('a' * 40) + ':lang/es.json\n').encode())
 
     def test_reject_unsupported_changes_and_bad_version(self):
-        for path in ('bootstrap/middleware.php', 'composer.lock', 'database/migrations/change.php', 'public/uploads/private.jpg', '.env'):
+        for path in ('resources/ts/components/ns-input.vue', 'bootstrap/middleware.php', 'composer.lock', 'database/migrations/change.php', 'public/uploads/private.jpg', '.env'):
             with patch.object(p, 'git', side_effect=[b'a' * 40, path.encode() + b'\0']), patch.object(p.subprocess, 'run'):
                 with self.assertRaisesRegex(ValueError, 'Unsupported'):
                     p.package('HEAD', 'cm-v1.1.0', '/unused')
