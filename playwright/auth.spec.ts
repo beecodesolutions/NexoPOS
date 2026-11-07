@@ -25,6 +25,26 @@ test.describe('Sign-in page', () => {
         await expect(loginPage.submitButton).toBeVisible();
     });
 
+    test('shows and hides the password without submitting the form', async ({ page }) => {
+        const loginPage = new LoginPage(page);
+        await loginPage.goto();
+
+        const password = loginPage.passwordInput;
+        const show = page.getByRole('button', { name: /show password|mostrar contraseña/i });
+        const hide = page.getByRole('button', { name: /hide password|ocultar contraseña/i });
+
+        await expect(password).toHaveAttribute('type', 'password');
+        await password.fill('example-password');
+        await expect(show).toHaveAttribute('type', 'button');
+        await show.click();
+        await expect(password).toHaveAttribute('type', 'text');
+        await expect(password).toHaveValue('example-password');
+
+        await hide.press('Enter');
+        await expect(password).toHaveAttribute('type', 'password');
+        await expect(password).toHaveValue('example-password');
+    });
+
     test('shows a "forgot password" link', async ({ page }) => {
         const loginPage = new LoginPage(page);
         await loginPage.goto();

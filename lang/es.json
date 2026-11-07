@@ -1634,6 +1634,8 @@
     "Partially Refunded": "reintegrado parcialmente",
     "Partially paid orders are disabled.": "Los pedidos parcialmente pagados están desactivados.",
     "Password": "Contraseña",
+    "Show Password": "Mostrar contraseña",
+    "Hide Password": "Ocultar contraseña",
     "Password Confirm": "Contraseña confirmada",
     "Password Confirmation": "Confirmación de contraseña",
     "Password Forgotten ?": "Contraseña olvidada ?",
