@@ -5,7 +5,7 @@
             <p class="py-4 text-sm md:text-base text-center">{{ message }}</p>
         </div>
         <div class="action-buttons flex justify-end border-t p-4">
-            <button class="rounded font-bold px-2 py-1 bg-secondary h-10 flex items-center justify-center" @click="emitAction( true )">{{ __( 'Yes' ) }}</button>
+            <button ref="confirmButton" class="rounded font-bold px-2 py-1 bg-secondary h-10 flex items-center justify-center" @click="emitAction( true )">{{ __( 'Yes' ) }}</button>
             <button class="rounded font-bold cancel px-2 py-1 h-10 flex items-center justify-center" @click="emitAction( false )">{{ __( 'No' ) }}</button>
         </div>
     </div>
@@ -33,6 +33,10 @@ export default {
         this.message        =   this.popup.params.message;
         
         this.popupCloser();
+
+        if ( this.popup.params.focusConfirm ) {
+            this.$refs.confirmButton.focus();
+        }
     },
     methods: {
         __,

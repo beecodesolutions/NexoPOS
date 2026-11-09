@@ -44,7 +44,6 @@ const nsPosDashboardButton      = (<any>window).nsPosDashboardButton = defineAsy
 const nsPosPendingOrderButton   = (<any>window).nsPosPendingOrderButton = defineAsyncComponent( () => import('./pages/dashboard/pos/header-buttons/ns-pos-' + 'pending-orders' + '-button.vue' ) );
 const nsPosOrderTypeButton      = (<any>window).nsPosOrderTypeButton = defineAsyncComponent( () => import('./pages/dashboard/pos/header-buttons/ns-pos-' + 'order-type' + '-button.vue' ) );
 const nsPosCustomersButton      = (<any>window).nsPosCustomersButton = defineAsyncComponent( () => import('./pages/dashboard/pos/header-buttons/ns-pos-' + 'customers' + '-button.vue' ) );
-const nsPosResetButton          = (<any>window).nsPosResetButton = defineAsyncComponent( () => import('./pages/dashboard/pos/header-buttons/ns-pos-' + 'reset' + '-button.vue' ) );
 const nsPosCashRegister         = (<any>window).nsPosCashRegister = defineAsyncComponent( () => import('./pages/dashboard/pos/header-buttons/ns-pos-' + 'registers' + '-button.vue' ) );
 
 (<any>window).nsLayawayPopup        = nsLayawayPopup;
@@ -723,9 +722,7 @@ export class POS {
             buttons: {
                 nsPosDashboardButton,
                 nsPosPendingOrderButton,
-                nsPosOrderTypeButton,
                 nsPosCustomersButton,
-                nsPosResetButton,
             }
         };
 

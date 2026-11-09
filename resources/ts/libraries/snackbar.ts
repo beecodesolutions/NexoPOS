@@ -1,4 +1,5 @@
 import { Observable } from 'rxjs';
+import { __ } from './lang';
 
 declare const window:any;
 
@@ -92,26 +93,27 @@ export class SnackBar {
         textNode.textContent        =   message;
         textNode.setAttribute( 'class', 'pr-2' );
 
-        /**
-         * if there is not label
-         * on the button, it's useless to add it
-         */
+        buttonNode.type = 'button';
         if ( label ) {
             buttonsWrapper.setAttribute( 'class', `ns-button default` )
             buttonNode.textContent      =   label;
             buttonNode.setAttribute( 'class', `px-3 py-2 shadow rounded uppercase ${buttonThemeClass}` );
-            buttonsWrapper.appendChild( buttonNode );
+        } else {
+            buttonNode.textContent = '×';
+            buttonNode.setAttribute( 'aria-label', __( 'Close' ) );
+            buttonNode.setAttribute( 'class', 'px-3 py-1 text-xl leading-none rounded' );
         }
+        buttonsWrapper.appendChild( buttonNode );
 
         sampleSnack.appendChild( textNode );
         sampleSnack.appendChild( buttonsWrapper );
-        sampleSnack.setAttribute( 'class', `md:rounded py-2 px-3 md:w-2/5 w-full z-10 md:my-2 shadow-lg flex justify-between items-center zoom-in-entrance anim-duration-300 ns-notice ${snackThemeClass}` );
+        sampleSnack.setAttribute( 'class', `pointer-events-auto md:rounded py-2 px-3 md:w-2/5 w-full z-10 md:my-2 shadow-lg flex justify-between items-center zoom-in-entrance anim-duration-300 ns-notice ${snackThemeClass}` );
         
         snackWrapper.appendChild( sampleSnack );
 
         if ( document.getElementById( 'snack-wrapper' ) === null ) {
             snackWrapper.setAttribute( 'id', 'snack-wrapper' );
-            snackWrapper.setAttribute( 'class', 'absolute bottom-0 w-full flex justify-between items-center flex-col')
+            snackWrapper.setAttribute( 'class', 'pointer-events-none absolute bottom-0 w-full flex justify-between items-center flex-col')
 
             document.body.appendChild( snackWrapper );
         }
