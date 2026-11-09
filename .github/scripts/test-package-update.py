@@ -31,7 +31,10 @@ class PackageTest(unittest.TestCase):
             manifest = p.package('HEAD', 'cm-v1.1.0', tmp)
             self.assertEqual(manifest['schema'], 2)
             files = {f['path']: f for f in manifest['files']}
-            self.assertEqual(len(files), 5)
+            self.assertEqual(len(files), 6)
+            missing_asset = 'public/build/assets/ns-scale-settings-preview-DNPxtwxc.js'
+            self.assertIn(None, files[missing_asset]['accepted_sha256'])
+            self.assertIsNotNone(files[missing_asset]['sha256'])
             self.assertIn('app/Reverted.php', files)
             self.assertIsNone(files['app/Legacy.php']['sha256'])
             self.assertIn(None, files['routes/new.php']['accepted_sha256'])
@@ -39,7 +42,7 @@ class PackageTest(unittest.TestCase):
             for path, file in files.items():
                 self.assertEqual(verified in file['accepted_sha256'], path == 'lang/es.json')
             with zipfile.ZipFile(Path(tmp) / 'nexopos-update.zip') as z:
-                self.assertEqual(set(z.namelist()), {'manifest.json', 'files/lang/es.json', 'files/routes/new.php', 'files/app/Reverted.php', 'files/public/build/manifest.json'})
+                self.assertEqual(set(z.namelist()), {'manifest.json', 'files/lang/es.json', 'files/routes/new.php', 'files/app/Reverted.php', 'files/public/build/manifest.json', 'files/' + missing_asset})
                 self.assertEqual(z.read('files/lang/es.json'), (('a' * 40) + ':lang/es.json\n').encode())
 
     def test_reject_unsupported_changes_and_bad_version(self):

@@ -14,8 +14,10 @@ BUILD_INPUTS = {
     'resources/ts/components/ns-input.vue',
     'resources/ts/pages/dashboard/pos/ns-pos-permissions-popup.vue',
 }
-# Windows catalog verified byte-for-byte on 2026-10-26; JSON equals commit 3d9bb71e.
+# Verified Windows variants and files missing from the installer build.
 VERIFIED_SOURCE_HASHES = {
+    'public/build/manifest.json': {'963e7d1395d97d5186abd23333bf2133ab45dd440324d05fb033393481e1f81d'},
+    'public/build/assets/ns-scale-settings-preview-DNPxtwxc.js': {None},
     'lang/es.json': {'26b17b2a5039a7095da54106f815ca317e74677cc925ac0963d7ef8f76218249'},
 }
 
@@ -70,7 +72,7 @@ def package(revision, version, output):
         raise ValueError(f'Unsupported runtime changes: {unsupported}')
     touched = git('log', '--format=', '--name-only', '--no-renames', '-z', f'{BASE}..{commit}').decode().split('\0')
     # Include reverted/deleted paths so clients can skip intermediate releases.
-    files = sorted({p for p in [*changed, *touched] if source_path(p)})
+    files = sorted({p for p in [*changed, *touched, *VERIFIED_SOURCE_HASHES] if source_path(p)})
     if not files or len(files) != len({p.casefold() for p in files}):
         raise ValueError('Empty update or Windows path collision')
     manifest = dict(schema=2, version=version, commit=commit, base=BASE, files=[], markers=[])
