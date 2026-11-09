@@ -9,17 +9,14 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\DashboardController;
-use Illuminate\Support\Facades\View;
+use Illuminate\Http\RedirectResponse;
 
 class HomeController extends DashboardController
 {
-    public function welcome()
+    public function welcome(): RedirectResponse
     {
-        return View::make( 'welcome', [
-            'title' => sprintf(
-                __( 'Welcome — %s' ),
-                ns()->option->get( 'ns_store_name', 'NexoPOS ' . config( 'nexopos.version' ) )
-            ),
-        ] );
+        $route = auth()->check() ? 'ns.dashboard.home' : 'ns.login';
+
+        return redirect( ns()->route( $route ) );
     }
 }

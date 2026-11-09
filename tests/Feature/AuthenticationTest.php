@@ -12,6 +12,18 @@ class AuthenticationTest extends TestCase
 {
     use WithFaker;
 
+    public function test_home_redirects_to_login_for_guests(): void
+    {
+        $this->get( '/' )->assertRedirect( ns()->route( 'ns.login' ) );
+    }
+
+    public function test_home_redirects_to_dashboard_for_authenticated_users(): void
+    {
+        $this->actingAs( User::factory()->make() )
+            ->get( '/' )
+            ->assertRedirect( ns()->route( 'ns.dashboard.home' ) );
+    }
+
     /**
      * Test if we can see the login page
      *
