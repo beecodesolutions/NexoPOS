@@ -12,6 +12,8 @@ MARKERS = ('composer.json', 'composer.lock', 'package.json', 'config/nexopos.php
 # Source inputs and browser tests are checked in, while Windows runs public/build.
 BUILD_INPUTS = {
     'resources/ts/components/ns-input.vue',
+    'resources/ts/pages/dashboard/pos/ns-pos-grid.vue',
+    'resources/ts/pages/dashboard/pos/ns-pos-product-entry-toolbar.vue',
     'resources/ts/libraries/snackbar.ts',
     'resources/ts/pages/dashboard/pos/cart-buttons/ns-pos-void-button.vue',
     'resources/ts/pages/dashboard/pos/header-buttons/ns-pos-dashboard-button.vue',
