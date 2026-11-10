@@ -1,57 +1,67 @@
 <template>
-	<div :class="embedded ? 'flex-auto min-w-64 border-0 rounded-none' : 'border rounded'"
-		class="flex overflow-hidden bg-input-background border-input-edge text-fontcolor">
-		<div class="ns-button">
-			<button :title="__('Search for products.')" @click="openSearchPopup()"
-				class="w-10 h-10 border-r border-input-edge outline-hidden hover:bg-input-button-hover">
-				<i class="las la-search"></i>
-			</button>
-		</div>
-		<div>
-			<button :title="__('Toggle merging similar products.')" @click="posToggleMerge()"
-				:class="settings.ns_pos_items_merge ? 'bg-input-button-active' : ''"
-				class="outline-hidden w-10 h-10 bg-box-background border-input-edge border-r hover:bg-input-button-hover">
-                        <i class="las la-compress-arrows-alt"></i>
-			</button>
-		</div>
-		<template v-if="options.ns_pos_barcode_reader_type === 'wireless'">
-			<div v-if="!settings.marketplace_connected" class="ns-button border-r border-input-edge text-error-secondary">
-				<button :title="__('Connect/Disconnect wireless barcode reader.')"
-					@click="inviteToMyNexoPOSConnexion()"
-					class="outline-hidden">
-					<span class="px-2 h-10 flex items-center justify-center"><i
-							class="las la-exclamation-triangle text-lg"></i></span>
+	<div :class="embedded ? 'flex-auto min-w-64' : 'w-full'" @keydown.esc="searchValue = ''">
+		<div :class="embedded ? 'border-0 rounded-none' : 'border rounded'"
+			class="flex overflow-hidden bg-input-background border-input-edge text-fontcolor">
+			<div class="ns-button">
+				<button :title="__('Search for products.')" @click="focusSearch()"
+					class="w-10 h-10 border-r border-input-edge outline-hidden hover:bg-input-button-hover">
+					<i class="las la-search"></i>
 				</button>
 			</div>
-			<ns-pos-grid-wireless-barcode v-else></ns-pos-grid-wireless-barcode>
-		</template>
-		<div v-else>
-			<button :title="__('Toggle auto focus.')"
-				@click="options.ns_pos_force_autofocus = !options.ns_pos_force_autofocus"
-				:class="options.ns_pos_force_autofocus ? 'bg-input-button-active' : ''"
-				class="outline-hidden w-10 h-10 border-r bg-box-background border-input-edge hover:bg-input-button-hover">
-				<i class="las la-barcode"></i>
-			</button>
+			<div>
+				<button :title="__('Toggle merging similar products.')" @click="posToggleMerge()"
+					:class="settings.ns_pos_items_merge ? 'bg-input-button-active' : ''"
+					class="outline-hidden w-10 h-10 bg-box-background border-input-edge border-r hover:bg-input-button-hover">
+	                        <i class="las la-compress-arrows-alt"></i>
+				</button>
+			</div>
+			<input ref="search" v-model="searchValue" type="search"
+				:aria-label="__('Search Product')" :placeholder="__('Search Products...')"
+				class="min-w-0 flex-auto bg-input-background px-2 text-fontcolor" />
+			<div class="ns-button">
+				<button v-if="showPinnedProducts" type="button" @click="openPinnedProducts()"
+					class="shrink-0 border-l px-3 h-10 font-semibold">
+					<i class="las la-thumbtack mr-1"></i>{{ __('Pinned Products') }}
+				</button>
+			</div>
 		</div>
-		<input ref="search" v-model="barcode" type="text" :aria-label="__('Barcode')"
-			class="min-w-0 flex-auto bg-input-background text-fontcolor outline-hidden px-2" />
-		<div class="ns-button">
-			<button v-if="showPinnedProducts" type="button" @click="openPinnedProducts()"
-				class="shrink-0 border-l px-3 h-10 font-semibold">
-				<i class="las la-thumbtack mr-1"></i>{{ __('Pinned Products') }}
+		<div v-if="searchValue.trim()" class="border-t bg-box-background text-fontcolor" aria-live="polite">
+			<p v-if="isSearching" class="p-2">{{ __('Searching...') }}</p>
+			<p v-else-if="searchError" class="p-2">{{ searchError }}</p>
+			<p v-else-if="products.length === 0" class="p-2">{{ __('No products found.') }}</p>
+			<button v-for="product in products" :key="product.id" type="button" @click="selectProduct(product)"
+				class="flex w-full items-center gap-3 border-b px-3 py-2 text-left hover:bg-input-button-hover">
+				<span class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded">
+					<img v-if="product.imageUrl" :src="product.imageUrl" alt="" class="h-full w-full object-cover" />
+					<i v-else class="las la-image text-xl" aria-hidden="true"></i>
+				</span>
+				<span class="min-w-0 flex-auto">
+					<span class="block">{{ product.name }}</span>
+					<small v-if="product.category" class="text-soft-secondary">{{ product.category.name }}</small>
+				</span>
+				<span v-if="product.priceLabel" class="shrink-0 font-semibold">{{ product.priceLabel }}</span>
 			</button>
 		</div>
 	</div>
 </template>
 <script lang="ts">
-import { nsHttpClient, nsSnackBar } from '../../../bootstrap';
+import { nsHttpClient } from '../../../bootstrap';
 import { __ } from '~/libraries/lang';
-import nsPosSearchProductVue from '~/popups/ns-pos-search-product.vue';
+import { nsCurrency } from '~/filters/currency';
+import nsPosConfirmPopupVue from '~/popups/ns-pos-confirm-popup.vue';
 import nsPosPinnedProductsPopup from '~/popups/ns-pos-pinned-products-popup.vue';
-import NsPosGridWirelessBarcode from './ns-pos-grid-wireless-barcode.vue';
-import { ProductUnitPromise } from './queues/products/product-unit';
+import type { Subscription } from 'rxjs';
 
-declare const nsNotice;
+interface SearchProduct {
+	id: number;
+	name: string;
+	accurate_tracking?: number | string;
+	category?: { name: string } | null;
+	galleries?: { featured: boolean; url: string }[];
+	unit_quantities?: { sale_price: number; sale_price_gross: number; sale_price_net: number }[];
+}
+
+type SearchResult = SearchProduct & { imageUrl?: string; priceLabel: string };
 
 export default {
 	name: 'ns-pos-product-entry-toolbar',
@@ -59,38 +69,61 @@ export default {
 		embedded: { type: Boolean, default: false },
 		showPinnedProducts: { type: Boolean, default: false }
 	},
-	components: { 'ns-pos-grid-wireless-barcode': NsPosGridWirelessBarcode },
+	emits: ['search-active'],
 	data() {
 		return {
-			barcode: '',
-			options: {},
+			searchValue: '',
+			products: [] as SearchResult[],
+			isSearching: false,
+			searchError: '',
 			settings: {},
-			searchTimeout: null,
-			interval: null,
-			optionsSubscriber: null,
-			settingsSubscriber: null,
-			wirelessStateSubscriber: null
+			settingsSubscriber: null
 		};
 	},
 	watch: {
-		barcode() {
-			if (this.options.ns_pos_force_autofocus) {
-				clearTimeout(this.searchTimeout);
-				this.searchTimeout = setTimeout(() => this.submitSearch(this.barcode), 200);
-			}
+		searchValue(value: string, _previous: string, onCleanup: (cleanup: () => void) => void) {
+			const search = value.trim();
+			this.$emit('search-active', search.length > 0);
+			this.products = [];
+			this.searchError = '';
+			this.isSearching = search.length > 0;
+			if (!search) return;
+
+			let request: Subscription | undefined;
+			const timer = setTimeout(() => {
+				request = nsHttpClient.post('/api/products/search', { search, include_sku: false }).subscribe({
+					next: (products: SearchProduct[]) => {
+						const options = POS.options.getValue();
+						const priceField = options.ns_pos_vat === 'disabled' ? 'sale_price'
+							: options.ns_pos_prefered_price === 'gross_prices' ? 'sale_price_gross' : 'sale_price_net';
+
+						this.products = products.map((product) => {
+							const image = product.galleries?.find((gallery) => gallery.featured) ?? product.galleries?.[0];
+							const prices = (product.unit_quantities ?? []).map((unit) => Number(unit[priceField])).filter(Number.isFinite);
+							const min = Math.min(...prices);
+							const max = Math.max(...prices);
+							const priceLabel = prices.length === 0 ? '' : min === max
+								? nsCurrency(min) : `${nsCurrency(min)} – ${nsCurrency(max)}`;
+
+							return { ...product, imageUrl: image?.url, priceLabel };
+						});
+						this.isSearching = false;
+					},
+					error: (error) => {
+						this.searchError = error.message;
+						this.isSearching = false;
+					}
+				});
+			}, 250);
+			onCleanup(() => {
+				clearTimeout(timer);
+				request?.unsubscribe();
+			});
 		}
 	},
 	mounted() {
 		this.settingsSubscriber = POS.settings.subscribe((settings) => {
 			this.settings = settings;
-		});
-		this.optionsSubscriber = POS.options.subscribe((options) => (this.options = options));
-		this.wirelessStateSubscriber = POS.wirelessBarcodeState.property('barcode').subscribe((state) => {
-			if (typeof state === 'string' && state.length > 0) this.submitSearch(state);
-		});
-		this.interval = setInterval(() => this.checkFocus(), 500);
-		nsHooks.addAction('ns-after-cart-changed', 'ns-pos-product-entry-toolbar', () => {
-			POS.wirelessBarcodeState.update({ barcode: '' });
 		});
 		for (const shortcut in nsShortcuts) {
 			if (shortcut === 'ns_pos_keyboard_quick_search') {
@@ -99,7 +132,7 @@ export default {
 					.whenNotVisible(['.is-popup', '#product-search'])
 					.whenPressed(nsShortcuts[shortcut] !== null ? nsShortcuts[shortcut].join('+') : null, (event) => {
 						event.preventDefault();
-						this.openSearchPopup();
+						this.focusSearch();
 					});
 			}
 			if (shortcut === 'ns_pos_keyboard_toggle_merge') {
@@ -115,18 +148,13 @@ export default {
 	},
 	unmounted() {
 		this.settingsSubscriber?.unsubscribe();
-		this.optionsSubscriber?.unsubscribe();
-		this.wirelessStateSubscriber?.unsubscribe();
-		clearInterval(this.interval);
-		clearTimeout(this.searchTimeout);
-		nsHooks.removeAction('ns-after-cart-changed', 'ns-pos-product-entry-toolbar');
 		nsHotPress.destroy('search-popup');
 		nsHotPress.destroy('toggle-merge');
 	},
 	methods: {
 		__,
-		openSearchPopup() {
-			Popup.show(nsPosSearchProductVue);
+		focusSearch() {
+			this.$refs.search.focus();
 		},
 		openPinnedProducts() {
 			Popup.show(nsPosPinnedProductsPopup);
@@ -134,79 +162,22 @@ export default {
 		posToggleMerge() {
 			POS.set('ns_pos_items_merge', !this.settings.ns_pos_items_merge);
 		},
-		checkFocus() {
-			if (this.options.ns_pos_force_autofocus && document.querySelectorAll('.is-popup').length === 0)
-				this.$refs.search?.focus();
-		},
-		async resolveBarcodeProduct(result) {
-			if (result.unit === null && result.product.id) {
-				const unitResult: any = await new ProductUnitPromise({ $original: () => result.product }).run();
-				result.unitQuantity = result.product.unit_quantities.find(
-					(quantity) => quantity.id === unitResult.unit_quantity_id
-				);
-				result.unit = result.unitQuantity.unit;
-			}
-			const product: any = {
-				name: result.product.name,
-				id: result.product.id,
-				product_type: result.product.product_type,
-				rate: result.product.rate,
-				tax_group_id: result.product.tax_group_id,
-				tax_type: result.product.tax_type,
-				unit_id: result.unit.id,
-				unit_price: result.unitQuantity.sale_price,
-				price_gross: result.unitQuantity.sale_price_gross,
-				price_net: result.unitQuantity.sale_price_net,
-				unit_name: result.unit.name,
-				unitQuantity: result.unitQuantity
-			};
-			if (result.scale?.type === 'weight') product.quantity = result.scale.value;
-			if (result.scale?.type === 'price') {
-				const unitPrice =
-					result.product.selectedUnitQuantity?.sale_price || result.product.unit_quantities[0]?.sale_price || 0;
-				if (unitPrice > 0) product.quantity = result.scale.value / unitPrice;
-			}
-			return product;
-		},
-		submitSearch(value) {
-			if (!value.length) return;
-			const url = nsHooks.applyFilters(
-				'ns-pos-submit-search-url',
-				`/api/products/search/using-barcode/${value}`,
-				value
-			);
-			nsHttpClient.get(url).subscribe({
-				next: async (result) => {
-					this.barcode = '';
-					try {
-						POS.addToCart(await this.resolveBarcodeProduct(result));
-					} catch (error) {
-						nsSnackBar.error(__('An unexpected error occurred while fetching the unit quantity for this product.'));
-					}
-				},
-				error: (error) => {
-					this.barcode = '';
-					nsSnackBar.error(error.message);
-				}
-			});
-		},
-		inviteToMyNexoPOSConnexion() {
-			nsNotice.info(
-				__('Authentication Required'),
-				__('You need to connect your installation to My NexoPOS for using websocket features.'),
-				{
-					actions: {
-						close: { type: 'info', label: __('No thanks') },
-						confirm: {
-							label: __('Continue'),
-							type: 'error',
-							onClick: () => {
-								document.location = POS.settings.getValue().urls.marketplace_url;
-							}
+		selectProduct(product: SearchProduct) {
+			if (Number(product.accurate_tracking) === 1) {
+				Popup.show(nsPosConfirmPopupVue, {
+					title: __('Unable to add the product'),
+					message: __(`The product "{product}" can't be added from a search field, as "Accurate Tracking" is enabled. Would you like to learn more ?`).replace('{product}', product.name),
+					onAction: (action) => {
+						if (action) {
+							window.open('https://my.nexopos.com/en/documentation/troubleshooting/accurate-tracking', '_blank');
 						}
 					}
-				}
-			);
+				});
+				return;
+			}
+
+			this.searchValue = '';
+			POS.addToCart(product);
 		}
 	}
 };

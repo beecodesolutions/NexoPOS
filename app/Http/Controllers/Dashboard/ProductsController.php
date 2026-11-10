@@ -143,7 +143,8 @@ class ProductsController extends DashboardController
     {
         return $this->productService->searchProduct(
             search: $request->input( 'search' ),
-            arguments: (array) $request->input( 'arguments' )
+            arguments: (array) $request->input( 'arguments' ),
+            includeSku: $request->boolean( 'include_sku', true )
         );
     }
 

@@ -2207,21 +2207,25 @@ class ProductService
      *
      * @throws NotFoundException
      */
-    public function searchProduct( ?string $search, int $limit = 5, array $arguments = [] )
+    public function searchProduct( ?string $search, int $limit = 5, array $arguments = [], bool $includeSku = true )
     {
         /**
          * @var Builder $query
          */
         $query = Product::query()
-            ->where( function ( $query ) use ( $search ) {
+            ->where( function ( $query ) use ( $search, $includeSku ) {
                 $query
-                    ->orWhere( 'name', 'LIKE', "%{$search}%" )
-                    ->orWhere( 'sku', 'LIKE', "%{$search}%" )
+                    ->where( 'name', 'LIKE', "%{$search}%" )
                     ->orWhere( 'barcode', 'LIKE', "%{$search}%" );
+
+                if ( $includeSku ) {
+                    $query->orWhere( 'sku', 'LIKE', "%{$search}%" );
+                }
             } )
             ->with( [
                 'unit_quantities.unit',
                 'category',
+                'galleries',
                 'tax_group.taxes',
             ] )
             ->limit( $limit );

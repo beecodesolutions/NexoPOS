@@ -10,9 +10,10 @@
             </div>
         </div>
         <div id="grid-container" class="rounded shadow  overflow-hidden flex-auto flex flex-col">
-            <div id="grid-header" class="p-2 border-b ">
-                <ns-pos-product-entry-toolbar></ns-pos-product-entry-toolbar>
+            <div id="grid-header" class="p-2 border-b" :class="searchActive ? 'min-h-0 overflow-y-auto' : 'shrink-0'">
+                <ns-pos-product-entry-toolbar @search-active="searchActive = $event"></ns-pos-product-entry-toolbar>
             </div>
+            <template v-if="!searchActive">
             <div style="height: 0px">
                 <div v-if="isLoading" class="fade-in-entrance ns-loader">
                     <div class="bar"></div>
@@ -116,6 +117,7 @@
                     </div>
                 </div>
             </div>
+            </template>
         </div>
     </div>
 </template>
@@ -135,6 +137,7 @@ export default {
     name: 'ns-pos-grid',
     data() {
         return {
+            searchActive: false,
             products: [],
             pinnedProducts: [],
             cartProductsSubscribe: null,
